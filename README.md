@@ -41,20 +41,6 @@ Package/Sources/
 - **Swift 5.10+**
 - **Node.js** (AWS Amplifyバックエンド用)
 
-### セットアップ手順
-
-1. **リポジトリのクローン**
-```bash
-git clone https://github.com/Yutaka-Inoue-8842/shisha-time-ios.git
-cd shisha-time-ios
-```
-
-3. **Xcodeで開く**
-`ShishaTime.xcworkspace`をXcodeで開く（.xcodeprojファイルではありません）
-
-4. **ビルド・実行**
-Xcode上で標準的なビルドプロセス（⌘+R）を実行
-
 ## 🎯 技術的特徴
 
 ### 設計パターン
