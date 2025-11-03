@@ -10,7 +10,7 @@ import Amplify
 import Foundation
 
 /// TableRepositoryのinterface
-public protocol TableRepository {
+public protocol TableRepository: Sendable {
   /// データを作成
   func create(_ table: Table) async throws
   /// すべてのデータを取得

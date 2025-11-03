@@ -52,14 +52,15 @@ extension TimerUseCase: DependencyKey {
   public static var liveValue: TimerUseCase {
     @Dependency(\.repositoryEnvironment) var environment
 
-    @Sendable func getTimerRepository() -> any TimerRepository {
+    // リポジトリインスタンスを一度だけ作成し保持
+    let repository: any TimerRepository = {
       switch environment {
       case .production:
         return TimerRepositoryImpl()
       case .demo:
         return TimerRepositoryDemoImpl()
       }
-    }
+    }()
 
     let localPushNotificationRepository = LocalPushNotificationRepositoryImpl()
 
@@ -79,8 +80,7 @@ extension TimerUseCase: DependencyKey {
           updatedAt: .init(Date())
         )
         timer.setTable(table)
-        let repo = getTimerRepository()
-        try await repo.create(timer)
+        try await repository.create(timer)
 
         // ローカルプッシュ通知の作成・登録 (UNNotificationRequestはSendableでないため分離)
         let request = await localPushNotificationRepository.makeRequest(
@@ -94,24 +94,21 @@ extension TimerUseCase: DependencyKey {
         return timer
       },
       fetchAll: {
-        let repo = getTimerRepository()
-        return try await repo.fetch(
+        return try await repository.fetch(
           partition: .global,
           limit: 60,
           sortDirection: .asc
         )
       },
       fetch: { limit in
-        let repo = getTimerRepository()
-        return try await repo.fetch(
+        return try await repository.fetch(
           partition: .global,
           limit: limit,
           sortDirection: .asc
         )
       },
       fetchMore: { nextToken, limit in
-        let repo = getTimerRepository()
-        return try await repo.fetchMore(
+        return try await repository.fetchMore(
           partition: .global,
           limit: limit,
           sortDirection: .asc,
@@ -124,8 +121,7 @@ extension TimerUseCase: DependencyKey {
         let newNextCheckTime = Date().addingTimeInterval(minutesInterval.toTimeInterval)
         targetTimer.nextCheckTime = .init(newNextCheckTime)
 
-        let repo = getTimerRepository()
-        try await repo.update(targetTimer)
+        try await repository.update(targetTimer)
 
         let table = try await timer.table
 
@@ -154,8 +150,7 @@ extension TimerUseCase: DependencyKey {
         let newNextCheckTime = Date().addingTimeInterval(newMinutesInterval.toTimeInterval)
         targetTimer.nextCheckTime = .init(newNextCheckTime)
 
-        let repo = getTimerRepository()
-        try await repo.update(targetTimer)
+        try await repository.update(targetTimer)
 
         let request = await localPushNotificationRepository.makeRequest(
           id: targetTimer.id,
@@ -168,8 +163,7 @@ extension TimerUseCase: DependencyKey {
         return targetTimer
       },
       delete: { timer in
-        let repo = getTimerRepository()
-        try await repo.delete(timer)
+        try await repository.delete(timer)
         await localPushNotificationRepository.removePendingRequest(timer.id)
       }
     )

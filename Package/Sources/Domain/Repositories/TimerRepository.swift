@@ -10,7 +10,7 @@ import Amplify
 import Foundation
 
 /// TimerRepositoryのinterface
-public protocol TimerRepository {
+public protocol TimerRepository: Sendable {
   /// データを作成
   func create(_ timer: Timer) async throws
   /// すべてのデータを取得

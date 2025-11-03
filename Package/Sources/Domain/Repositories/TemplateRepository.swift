@@ -10,7 +10,7 @@ import Amplify
 import Foundation
 
 /// TemplateRepositoryのinterface
-public protocol TemplateRepository {
+public protocol TemplateRepository: Sendable {
   /// データを作成
   func create(_ template: Template) async throws
   /// すべてのデータを取得

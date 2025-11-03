@@ -10,7 +10,7 @@ import Amplify
 import Foundation
 
 /// CategoryRepositoryのinterface
-public protocol CategoryRepository {
+public protocol CategoryRepository: Sendable {
   /// データを作成
   func create(_ category: Category) async throws
   /// すべてのデータを取得

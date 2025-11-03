@@ -46,24 +46,23 @@ extension CategoryUseCase: DependencyKey {
     // 環境に応じてRepositoryを切り替え
     @Dependency(\.repositoryEnvironment) var environment
 
-    @Sendable func getCategoryRepository() -> any CategoryRepository {
+    // リポジトリインスタンスを一度だけ作成し保持
+    let repository: any CategoryRepository = {
       switch environment {
       case .production:
         return CategoryRepositoryImpl()
       case .demo:
         return CategoryRepositoryDemoImpl()
       }
-    }
+    }()
 
     return Self(
       create: { category in
         try CategoryUseCase.validate(name: category.name)
-        let repository = getCategoryRepository()
         try await repository.create(category)
         return category
       },
       fetchAll: {
-        let repository = getCategoryRepository()
         return try await repository.fetch(
           partition: .global,
           limit: 60,
@@ -71,7 +70,6 @@ extension CategoryUseCase: DependencyKey {
         )
       },
       fetch: { limit in
-        let repository = getCategoryRepository()
         return try await repository.fetch(
           partition: .global,
           limit: limit,
@@ -79,7 +77,6 @@ extension CategoryUseCase: DependencyKey {
         )
       },
       fetchMore: { nextToken, limit in
-        let repository = getCategoryRepository()
         return try await repository.fetchMore(
           partition: .global,
           limit: limit,
@@ -89,12 +86,10 @@ extension CategoryUseCase: DependencyKey {
       },
       update: { category in
         try CategoryUseCase.validate(name: category.name)
-        let repository = getCategoryRepository()
         try await repository.update(category)
         return category
       },
       delete: { category in
-        let repository = getCategoryRepository()
         try await repository.delete(category)
       }
     )

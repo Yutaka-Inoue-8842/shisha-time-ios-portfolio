@@ -10,7 +10,7 @@ import Amplify
 import Foundation
 
 /// DocumentRepositoryのinterface
-public protocol DocumentRepository {
+public protocol DocumentRepository: Sendable {
   /// データを作成
   func create(_ document: Document) async throws
   /// すべてのデータを取得
