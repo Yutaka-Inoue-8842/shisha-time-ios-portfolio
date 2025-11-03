@@ -65,3 +65,55 @@ public actor TableRepositoryImpl: TableRepository {
     _ = try await AmplifyAPIClient.shared.mutate(request: .delete(table))
   }
 }
+
+// MARK: - Demo Implementation
+
+/// デモ環境用のTableRepository実装（オンメモリ）
+public actor TableRepositoryDemoImpl: TableRepository {
+
+  private var tables: [Table] = []
+
+  public init() {
+    self.tables = SampleDataProvider.sampleTables()
+  }
+
+  public func create(_ table: Table) async throws {
+    tables.append(table)
+  }
+
+  public func fetchAll(
+    partition: Partition,
+    limit: Int,
+    sortDirection: SortDirection
+  ) async throws -> PaginatedList<Table> {
+    let sorted = sortTables(tables, direction: sortDirection)
+    let items = Array(sorted.prefix(limit))
+    let nextToken = items.count < sorted.count ? "has_more" : nil
+    return PaginatedList(items: items, nextToken: nextToken)
+  }
+
+  public func fetchById(by id: String) async throws -> Table? {
+    return tables.first { $0.id == id }
+  }
+
+  public func update(_ table: Table) async throws {
+    if let index = tables.firstIndex(where: { $0.id == table.id }) {
+      tables[index] = table
+    }
+  }
+
+  public func delete(_ table: Table) async throws {
+    tables.removeAll { $0.id == table.id }
+  }
+
+  // MARK: - Helper Methods
+
+  private func sortTables(_ items: [Table], direction: SortDirection) -> [Table] {
+    switch direction {
+    case .asc:
+      return items.sorted { $0.updatedAt.foundationDate < $1.updatedAt.foundationDate }
+    case .desc:
+      return items.sorted { $0.updatedAt.foundationDate > $1.updatedAt.foundationDate }
+    }
+  }
+}

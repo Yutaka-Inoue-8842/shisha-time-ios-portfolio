@@ -64,7 +64,7 @@ let package = Package(
       url: "https://github.com/pointfreeco/swift-composable-architecture.git",
       exact: "1.21.1"
     ),
-    .package(url: "https://github.com/aws-amplify/amplify-swift", exact: "2.50.0")
+    .package(url: "https://github.com/aws-amplify/amplify-swift", exact: "2.48.0")
   ],
   targets: [
     // Targets are the basic building blocks of a package, defining a module or a test suite.

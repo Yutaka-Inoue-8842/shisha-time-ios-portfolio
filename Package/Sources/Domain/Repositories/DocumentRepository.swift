@@ -312,3 +312,177 @@ public actor DocumentRepositoryImpl: DocumentRepository {
     return result
   }
 }
+
+// MARK: - Demo Implementation
+
+/// デモ環境用のDocumentRepository実装（オンメモリ）
+public actor DocumentRepositoryDemoImpl: DocumentRepository {
+
+  private var documents: [Document] = []
+
+  public init() {
+    // カテゴリ関連のサンプルデータが必要な場合は、
+    // 先にCategoryRepositoryを初期化してからDocumentを生成する必要がある
+    let categories = SampleDataProvider.sampleCategories()
+    self.documents = SampleDataProvider.sampleDocuments(categories: categories)
+  }
+
+  public func create(_ document: Document) async throws {
+    documents.append(document)
+  }
+
+  public func fetch(
+    partition: Partition,
+    limit: Int,
+    sortDirection: SortDirection
+  ) async throws -> PaginatedList<Document> {
+    let sorted = sortDocuments(documents, direction: sortDirection)
+    let items = Array(sorted.prefix(limit))
+    let nextToken = items.count < sorted.count ? "has_more" : nil
+    return PaginatedList(items: items, nextToken: nextToken)
+  }
+
+  public func fetchMore(
+    partition: Partition,
+    limit: Int,
+    sortDirection: SortDirection,
+    nextToken: String
+  ) async throws -> PaginatedList<Document> {
+    let sorted = sortDocuments(documents, direction: sortDirection)
+    let offset = min(limit, sorted.count)
+    let items = Array(sorted.dropFirst(offset).prefix(limit))
+    let newNextToken = (offset + items.count) < sorted.count ? "has_more" : nil
+    return PaginatedList(items: items, nextToken: newNextToken)
+  }
+
+  public func fetchById(by id: String) async throws -> Document? {
+    return documents.first { $0.id == id }
+  }
+
+  public func update(_ document: Document) async throws {
+    if let index = documents.firstIndex(where: { $0.id == document.id }) {
+      documents[index] = document
+    }
+  }
+
+  public func delete(_ document: Document) async throws {
+    documents.removeAll { $0.id == document.id }
+  }
+
+  public func fetchByCategory(
+    categoryId: String,
+    partition: Partition,
+    limit: Int,
+    sortDirection: SortDirection
+  ) async throws -> PaginatedList<Document> {
+    let filtered = try await filterByCategory(documents, categoryId: categoryId)
+    let sorted = sortDocuments(filtered, direction: sortDirection)
+    let items = Array(sorted.prefix(limit))
+    let nextToken = items.count < sorted.count ? "has_more" : nil
+    return PaginatedList(items: items, nextToken: nextToken)
+  }
+
+  public func fetchMoreByCategory(
+    categoryId: String,
+    partition: Partition,
+    limit: Int,
+    sortDirection: SortDirection,
+    nextToken: String
+  ) async throws -> PaginatedList<Document> {
+    let filtered = try await filterByCategory(documents, categoryId: categoryId)
+    let sorted = sortDocuments(filtered, direction: sortDirection)
+    let offset = min(limit, sorted.count)
+    let items = Array(sorted.dropFirst(offset).prefix(limit))
+    let newNextToken = (offset + items.count) < sorted.count ? "has_more" : nil
+    return PaginatedList(items: items, nextToken: newNextToken)
+  }
+
+  public func searchDocuments(
+    query: String,
+    partition: Partition,
+    limit: Int,
+    sortDirection: SortDirection
+  ) async throws -> PaginatedList<Document> {
+    let filtered = documents.filter { document in
+      document.text.localizedCaseInsensitiveContains(query)
+    }
+    let sorted = sortDocuments(filtered, direction: sortDirection)
+    let items = Array(sorted.prefix(limit))
+    let nextToken = items.count < sorted.count ? "has_more" : nil
+    return PaginatedList(items: items, nextToken: nextToken)
+  }
+
+  public func searchMoreDocuments(
+    query: String,
+    partition: Partition,
+    limit: Int,
+    sortDirection: SortDirection,
+    nextToken: String
+  ) async throws -> PaginatedList<Document> {
+    let filtered = documents.filter { document in
+      document.text.localizedCaseInsensitiveContains(query)
+    }
+    let sorted = sortDocuments(filtered, direction: sortDirection)
+    let offset = min(limit, sorted.count)
+    let items = Array(sorted.dropFirst(offset).prefix(limit))
+    let newNextToken = (offset + items.count) < sorted.count ? "has_more" : nil
+    return PaginatedList(items: items, nextToken: newNextToken)
+  }
+
+  public func searchDocumentsByCategory(
+    query: String,
+    categoryId: String,
+    partition: Partition,
+    limit: Int,
+    sortDirection: SortDirection
+  ) async throws -> PaginatedList<Document> {
+    let categoryFiltered = try await filterByCategory(documents, categoryId: categoryId)
+    let filtered = categoryFiltered.filter { document in
+      document.text.localizedCaseInsensitiveContains(query)
+    }
+    let sorted = sortDocuments(filtered, direction: sortDirection)
+    let items = Array(sorted.prefix(limit))
+    let nextToken = items.count < sorted.count ? "has_more" : nil
+    return PaginatedList(items: items, nextToken: nextToken)
+  }
+
+  public func searchMoreDocumentsByCategory(
+    query: String,
+    categoryId: String,
+    partition: Partition,
+    limit: Int,
+    sortDirection: SortDirection,
+    nextToken: String
+  ) async throws -> PaginatedList<Document> {
+    let categoryFiltered = try await filterByCategory(documents, categoryId: categoryId)
+    let filtered = categoryFiltered.filter { document in
+      document.text.localizedCaseInsensitiveContains(query)
+    }
+    let sorted = sortDocuments(filtered, direction: sortDirection)
+    let offset = min(limit, sorted.count)
+    let items = Array(sorted.dropFirst(offset).prefix(limit))
+    let newNextToken = (offset + items.count) < sorted.count ? "has_more" : nil
+    return PaginatedList(items: items, nextToken: newNextToken)
+  }
+
+  // MARK: - Helper Methods
+
+  private func sortDocuments(_ items: [Document], direction: SortDirection) -> [Document] {
+    switch direction {
+    case .asc:
+      return items.sorted { $0.updatedAt.foundationDate < $1.updatedAt.foundationDate }
+    case .desc:
+      return items.sorted { $0.updatedAt.foundationDate > $1.updatedAt.foundationDate }
+    }
+  }
+
+  private func filterByCategory(_ items: [Document], categoryId: String) async throws -> [Document] {
+    var filtered: [Document] = []
+    for document in items {
+      if let category = try await document.category, category.id == categoryId {
+        filtered.append(document)
+      }
+    }
+    return filtered
+  }
+}

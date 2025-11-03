@@ -62,9 +62,18 @@ extension DocumentUseCase {
 
 extension DocumentUseCase: DependencyKey {
   /// DocumentUseCaseのDependencyKey
-  public static let liveValue: DocumentUseCase = {
-    let documentRepository = DocumentRepositoryImpl()
-    let categoryRepository = CategoryRepositoryImpl()
+  public static var liveValue: DocumentUseCase {
+    // 環境に応じたRepositoryを取得
+    @Dependency(\.repositoryEnvironment) var environment
+
+    @Sendable func getDocumentRepository() -> any DocumentRepository {
+      switch environment {
+      case .production:
+        return DocumentRepositoryImpl()
+      case .demo:
+        return DocumentRepositoryDemoImpl()
+      }
+    }
 
     return Self(
       create: { content, category in
@@ -76,25 +85,29 @@ extension DocumentUseCase: DependencyKey {
           updatedAt: .init(Date())
         )
         document.setCategory(category)
-        try await documentRepository.create(document)
+        let repo = getDocumentRepository()
+        try await repo.create(document)
         return document
       },
       fetchAll: {
-        try await documentRepository.fetch(
+        let repo = getDocumentRepository()
+        return try await repo.fetch(
           partition: .global,
           limit: 60,
           sortDirection: .desc
         )
       },
       fetch: { limit in
-        try await documentRepository.fetch(
+        let repo = getDocumentRepository()
+        return try await repo.fetch(
           partition: .global,
           limit: limit,
           sortDirection: .desc
         )
       },
       fetchMore: { nextToken, limit in
-        try await documentRepository.fetchMore(
+        let repo = getDocumentRepository()
+        return try await repo.fetchMore(
           partition: .global,
           limit: limit,
           sortDirection: .desc,
@@ -108,14 +121,17 @@ extension DocumentUseCase: DependencyKey {
         targetDocument.text = newText
         targetDocument.updatedAt = .init(Date())
         targetDocument.setCategory(newCategory)
-        try await documentRepository.update(targetDocument)
+        let repo = getDocumentRepository()
+        try await repo.update(targetDocument)
         return targetDocument
       },
       delete: { document in
-        try await documentRepository.delete(document)
+        let repo = getDocumentRepository()
+        try await repo.delete(document)
       },
       search: { query, limit in
-        try await documentRepository.searchDocuments(
+        let repo = getDocumentRepository()
+        return try await repo.searchDocuments(
           query: query,
           partition: .global,
           limit: limit,
@@ -123,7 +139,8 @@ extension DocumentUseCase: DependencyKey {
         )
       },
       searchMore: { query, nextToken, limit in
-        try await documentRepository.searchMoreDocuments(
+        let repo = getDocumentRepository()
+        return try await repo.searchMoreDocuments(
           query: query,
           partition: .global,
           limit: limit,
@@ -132,7 +149,8 @@ extension DocumentUseCase: DependencyKey {
         )
       },
       searchByCategory: { query, category, limit in
-        try await documentRepository.searchDocumentsByCategory(
+        let repo = getDocumentRepository()
+        return try await repo.searchDocumentsByCategory(
           query: query,
           categoryId: category.id,
           partition: .global,
@@ -141,7 +159,8 @@ extension DocumentUseCase: DependencyKey {
         )
       },
       searchMoreByCategory: { query, category, nextToken, limit in
-        try await documentRepository.searchMoreDocumentsByCategory(
+        let repo = getDocumentRepository()
+        return try await repo.searchMoreDocumentsByCategory(
           query: query,
           categoryId: category.id,
           partition: .global,
@@ -151,7 +170,8 @@ extension DocumentUseCase: DependencyKey {
         )
       },
       fetchByCategory: { category, limit in
-        try await documentRepository.fetchByCategory(
+        let repo = getDocumentRepository()
+        return try await repo.fetchByCategory(
           categoryId: category.id,
           partition: .global,
           limit: limit,
@@ -159,7 +179,8 @@ extension DocumentUseCase: DependencyKey {
         )
       },
       fetchMoreByCategory: { category, nextToken, limit in
-        try await documentRepository.fetchMoreByCategory(
+        let repo = getDocumentRepository()
+        return try await repo.fetchMoreByCategory(
           categoryId: category.id,
           partition: .global,
           limit: limit,
@@ -168,7 +189,7 @@ extension DocumentUseCase: DependencyKey {
         )
       }
     )
-  }()
+  }
 }
 
 extension DocumentUseCase: TestDependencyKey {

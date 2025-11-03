@@ -47,8 +47,18 @@ extension TemplateUseCase {
 
 extension TemplateUseCase: DependencyKey {
   /// TemplateUseCaseのDependencyKey
-  public static let liveValue: TemplateUseCase = {
-    let repository = TemplateRepositoryImpl()
+  public static var liveValue: TemplateUseCase {
+    @Dependency(\.repositoryEnvironment) var environment
+
+    @Sendable func getTemplateRepository() -> any TemplateRepository {
+      switch environment {
+      case .production:
+        return TemplateRepositoryImpl()
+      case .demo:
+        return TemplateRepositoryDemoImpl()
+      }
+    }
+
     return Self(
       create: { title, content in
         try TemplateUseCase.validate(title: title)
@@ -59,11 +69,13 @@ extension TemplateUseCase: DependencyKey {
           createdAt: .init(Date()),
           updatedAt: .init(Date())
         )
-        try await repository.create(template)
+        let repo = getTemplateRepository()
+        try await repo.create(template)
         return template
       },
       fetchAll: {
-        let list = try await repository.fetchAll(
+        let repo = getTemplateRepository()
+        let list = try await repo.fetchAll(
           partition: .global,
           limit: 20,
           sortDirection: .desc
@@ -77,14 +89,16 @@ extension TemplateUseCase: DependencyKey {
         targetTemplate.title = newTitle
         targetTemplate.content = newContentString
         targetTemplate.updatedAt = .init(Date())
-        try await repository.update(targetTemplate)
+        let repo = getTemplateRepository()
+        try await repo.update(targetTemplate)
         return targetTemplate
       },
       delete: { template in
-        try await repository.delete(template)
+        let repo = getTemplateRepository()
+        try await repo.delete(template)
       }
     )
-  }()
+  }
 }
 
 extension TemplateUseCase: TestDependencyKey {

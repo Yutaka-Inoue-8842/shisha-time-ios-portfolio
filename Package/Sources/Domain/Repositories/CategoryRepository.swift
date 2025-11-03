@@ -100,3 +100,69 @@ public actor CategoryRepositoryImpl: CategoryRepository {
     _ = try await AmplifyAPIClient.shared.mutate(request: .delete(category))
   }
 }
+
+// MARK: - Demo Implementation
+
+/// デモ環境用のCategoryRepository実装（オンメモリ）
+public actor CategoryRepositoryDemoImpl: CategoryRepository {
+
+  private var categories: [Category] = []
+
+  public init() {
+    self.categories = SampleDataProvider.sampleCategories()
+  }
+
+  public func create(_ category: Category) async throws {
+    categories.append(category)
+  }
+
+  public func fetch(
+    partition: Partition,
+    limit: Int,
+    sortDirection: SortDirection
+  ) async throws -> PaginatedList<Category> {
+    let sorted = sortCategories(categories, direction: sortDirection)
+    let items = Array(sorted.prefix(limit))
+    let nextToken = items.count < sorted.count ? "has_more" : nil
+    return PaginatedList(items: items, nextToken: nextToken)
+  }
+
+  public func fetchMore(
+    partition: Partition,
+    limit: Int,
+    sortDirection: SortDirection,
+    nextToken: String
+  ) async throws -> PaginatedList<Category> {
+    // オンメモリでは簡易的な実装
+    let sorted = sortCategories(categories, direction: sortDirection)
+    let offset = min(limit, sorted.count)
+    let items = Array(sorted.dropFirst(offset).prefix(limit))
+    let newNextToken = (offset + items.count) < sorted.count ? "has_more" : nil
+    return PaginatedList(items: items, nextToken: newNextToken)
+  }
+
+  public func fetchById(by id: String) async throws -> Category? {
+    return categories.first { $0.id == id }
+  }
+
+  public func update(_ category: Category) async throws {
+    if let index = categories.firstIndex(where: { $0.id == category.id }) {
+      categories[index] = category
+    }
+  }
+
+  public func delete(_ category: Category) async throws {
+    categories.removeAll { $0.id == category.id }
+  }
+
+  // MARK: - Helper Methods
+
+  private func sortCategories(_ items: [Category], direction: SortDirection) -> [Category] {
+    switch direction {
+    case .asc:
+      return items.sorted { $0.updatedAt.foundationDate < $1.updatedAt.foundationDate }
+    case .desc:
+      return items.sorted { $0.updatedAt.foundationDate > $1.updatedAt.foundationDate }
+    }
+  }
+}

@@ -38,8 +38,18 @@ extension TableUseCase {
 
 extension TableUseCase: DependencyKey {
   /// TableUseCaseのDependencyKey
-  public static let liveValue: TableUseCase = {
-    let repository = TableRepositoryImpl()
+  public static var liveValue: TableUseCase {
+    @Dependency(\.repositoryEnvironment) var environment
+
+    @Sendable func getTableRepository() -> any TableRepository {
+      switch environment {
+      case .production:
+        return TableRepositoryImpl()
+      case .demo:
+        return TableRepositoryDemoImpl()
+      }
+    }
+
     return Self(
       create: { name in
         try TableUseCase.validate(name: name)
@@ -48,11 +58,13 @@ extension TableUseCase: DependencyKey {
           createdAt: .init(Date()),
           updatedAt: .init(Date())
         )
-        try await repository.create(table)
+        let repo = getTableRepository()
+        try await repo.create(table)
         return table
       },
       fetchAll: {
-        let list = try await repository.fetchAll(
+        let repo = getTableRepository()
+        let list = try await repo.fetchAll(
           partition: .global,
           limit: 60,
           sortDirection: .desc
@@ -64,14 +76,16 @@ extension TableUseCase: DependencyKey {
         var targetTable = table
         targetTable.name = newName
         targetTable.updatedAt = .init(Date())
-        try await repository.update(targetTable)
+        let repo = getTableRepository()
+        try await repo.update(targetTable)
         return targetTable
       },
       delete: { table in
-        try await repository.delete(table)
+        let repo = getTableRepository()
+        try await repo.delete(table)
       }
     )
-  }()
+  }
 }
 
 extension TableUseCase: TestDependencyKey {

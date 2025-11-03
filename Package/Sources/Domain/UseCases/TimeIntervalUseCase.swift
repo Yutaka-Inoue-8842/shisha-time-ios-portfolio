@@ -42,7 +42,6 @@ extension TimeIntervalUseCase: DependencyKey {
       TimeIntervalRepositoryImpl().set(timeIntervals)
     },
     fetch: {
-      TimeIntervalRepositoryImpl().fetch()
       let timeIntervals = TimeIntervalRepositoryImpl().fetch()
       return timeIntervals.map { TimeIntervalData(timeInterval: "\($0)") }
     }

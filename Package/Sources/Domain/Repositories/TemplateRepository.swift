@@ -66,3 +66,55 @@ public actor TemplateRepositoryImpl: TemplateRepository {
     _ = try await AmplifyAPIClient.shared.mutate(request: .delete(template))
   }
 }
+
+// MARK: - Demo Implementation
+
+/// デモ環境用のTemplateRepository実装（オンメモリ）
+public actor TemplateRepositoryDemoImpl: TemplateRepository {
+
+  private var templates: [Template] = []
+
+  public init() {
+    self.templates = SampleDataProvider.sampleTemplates()
+  }
+
+  public func create(_ template: Template) async throws {
+    templates.append(template)
+  }
+
+  public func fetchAll(
+    partition: Partition,
+    limit: Int,
+    sortDirection: SortDirection
+  ) async throws -> PaginatedList<Template> {
+    let sorted = sortTemplates(templates, direction: sortDirection)
+    let items = Array(sorted.prefix(limit))
+    let nextToken = items.count < sorted.count ? "has_more" : nil
+    return PaginatedList(items: items, nextToken: nextToken)
+  }
+
+  public func fetchById(by id: String) async throws -> Template? {
+    return templates.first { $0.id == id }
+  }
+
+  public func update(_ template: Template) async throws {
+    if let index = templates.firstIndex(where: { $0.id == template.id }) {
+      templates[index] = template
+    }
+  }
+
+  public func delete(_ template: Template) async throws {
+    templates.removeAll { $0.id == template.id }
+  }
+
+  // MARK: - Helper Methods
+
+  private func sortTemplates(_ items: [Template], direction: SortDirection) -> [Template] {
+    switch direction {
+    case .asc:
+      return items.sorted { $0.updatedAt.foundationDate < $1.updatedAt.foundationDate }
+    case .desc:
+      return items.sorted { $0.updatedAt.foundationDate > $1.updatedAt.foundationDate }
+    }
+  }
+}

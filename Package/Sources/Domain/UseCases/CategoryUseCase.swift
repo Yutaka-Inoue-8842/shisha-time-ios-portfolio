@@ -42,30 +42,45 @@ extension CategoryUseCase {
 
 extension CategoryUseCase: DependencyKey {
   /// CategoryUseCaseのDependencyKey
-  public static let liveValue: CategoryUseCase = {
-    let repository = CategoryRepositoryImpl()
+  public static var liveValue: CategoryUseCase {
+    // 環境に応じてRepositoryを切り替え
+    @Dependency(\.repositoryEnvironment) var environment
+
+    @Sendable func getCategoryRepository() -> any CategoryRepository {
+      switch environment {
+      case .production:
+        return CategoryRepositoryImpl()
+      case .demo:
+        return CategoryRepositoryDemoImpl()
+      }
+    }
+
     return Self(
       create: { category in
         try CategoryUseCase.validate(name: category.name)
+        let repository = getCategoryRepository()
         try await repository.create(category)
         return category
       },
       fetchAll: {
-        try await repository.fetch(
+        let repository = getCategoryRepository()
+        return try await repository.fetch(
           partition: .global,
           limit: 60,
           sortDirection: .desc
         )
       },
       fetch: { limit in
-        try await repository.fetch(
+        let repository = getCategoryRepository()
+        return try await repository.fetch(
           partition: .global,
           limit: limit,
           sortDirection: .desc
         )
       },
       fetchMore: { nextToken, limit in
-        try await repository.fetchMore(
+        let repository = getCategoryRepository()
+        return try await repository.fetchMore(
           partition: .global,
           limit: limit,
           sortDirection: .desc,
@@ -74,14 +89,16 @@ extension CategoryUseCase: DependencyKey {
       },
       update: { category in
         try CategoryUseCase.validate(name: category.name)
+        let repository = getCategoryRepository()
         try await repository.update(category)
         return category
       },
       delete: { category in
+        let repository = getCategoryRepository()
         try await repository.delete(category)
       }
     )
-  }()
+  }
 }
 
 extension CategoryUseCase: TestDependencyKey {

@@ -101,3 +101,71 @@ public actor TimerRepositoryImpl: TimerRepository {
     _ = try await AmplifyAPIClient.shared.mutate(request: .delete(timer))
   }
 }
+
+// MARK: - Demo Implementation
+
+/// デモ環境用のTimerRepository実装（オンメモリ）
+public actor TimerRepositoryDemoImpl: TimerRepository {
+
+  private var timers: [Timer] = []
+
+  public init() {
+    // テーブル関連のサンプルデータが必要な場合は、
+    // 先にTableRepositoryを初期化してからTimerを生成する必要がある
+    let tables = SampleDataProvider.sampleTables()
+    self.timers = SampleDataProvider.sampleTimers(tables: tables)
+  }
+
+  public func create(_ timer: Timer) async throws {
+    timers.append(timer)
+  }
+
+  public func fetch(
+    partition: Partition,
+    limit: Int,
+    sortDirection: SortDirection
+  ) async throws -> PaginatedList<Timer> {
+    let sorted = sortTimers(timers, direction: sortDirection)
+    let items = Array(sorted.prefix(limit))
+    let nextToken = items.count < sorted.count ? "has_more" : nil
+    return PaginatedList(items: items, nextToken: nextToken)
+  }
+
+  public func fetchMore(
+    partition: Partition,
+    limit: Int,
+    sortDirection: SortDirection,
+    nextToken: String
+  ) async throws -> PaginatedList<Timer> {
+    let sorted = sortTimers(timers, direction: sortDirection)
+    let offset = min(limit, sorted.count)
+    let items = Array(sorted.dropFirst(offset).prefix(limit))
+    let newNextToken = (offset + items.count) < sorted.count ? "has_more" : nil
+    return PaginatedList(items: items, nextToken: newNextToken)
+  }
+
+  public func fetchById(by id: String) async throws -> Timer? {
+    return timers.first { $0.id == id }
+  }
+
+  public func update(_ timer: Timer) async throws {
+    if let index = timers.firstIndex(where: { $0.id == timer.id }) {
+      timers[index] = timer
+    }
+  }
+
+  public func delete(_ timer: Timer) async throws {
+    timers.removeAll { $0.id == timer.id }
+  }
+
+  // MARK: - Helper Methods
+
+  private func sortTimers(_ items: [Timer], direction: SortDirection) -> [Timer] {
+    switch direction {
+    case .asc:
+      return items.sorted { $0.nextCheckTime.foundationDate < $1.nextCheckTime.foundationDate }
+    case .desc:
+      return items.sorted { $0.nextCheckTime.foundationDate > $1.nextCheckTime.foundationDate }
+    }
+  }
+}
